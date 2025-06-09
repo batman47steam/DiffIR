@@ -81,7 +81,7 @@ class FeedForward(nn.Module):
         b,c,h,w = x.shape
         k_v=self.kernel(k_v).view(-1,c*2,1,1)
         k_v1,k_v2=k_v.chunk(2, dim=1)
-        x = x*k_v1+k_v2  
+        x = x*k_v1+k_v2  # 感觉相对简单，也没进行额外的映射
         x = self.project_in(x)
         x1, x2 = self.dwconv(x).chunk(2, dim=1)
         x = F.gelu(x1) * x2
@@ -102,9 +102,9 @@ class Attention(nn.Module):
 
     def forward(self, x,k_v):
         b,c,h,w = x.shape
-        k_v=self.kernel(k_v).view(-1,c*2,1,1)
+        k_v=self.kernel(k_v).view(-1,c*2,1,1) # self.kernel就是进行了一个linear的映射
         k_v1,k_v2=k_v.chunk(2, dim=1)
-        x = x*k_v1+k_v2  
+        x = x*k_v1+k_v2  # 都只是对外面的x进行操作，也没有涉及到attention计算内部
 
         qkv = self.qkv_dwconv(self.qkv(x))
         q,k,v = qkv.chunk(3, dim=1)   
@@ -142,7 +142,7 @@ class TransformerBlock(nn.Module):
         x = x + self.attn(self.norm1(x),k_v)
         x = x + self.ffn(self.norm2(x),k_v)
 
-        return [x,k_v]
+        return [x,k_v] # x是经过改变了的，但是k_v应该没变，但是在attention内部确实是有个映射的过程
 
 class OverlapPatchEmbed(nn.Module):
     def __init__(self, in_c=3, embed_dim=48, bias=False):
@@ -287,14 +287,14 @@ class CPEN(nn.Module):
         )
         self.pixel_unshuffle = nn.PixelUnshuffle(4)
     def forward(self, x,gt):
-        gt0 = self.pixel_unshuffle(gt)
+        gt0 = self.pixel_unshuffle(gt) # 输入都先进行降采样
         x0 = self.pixel_unshuffle(x)
         x = torch.cat([x0, gt0], dim=1)
-        fea = self.E(x).squeeze(-1).squeeze(-1)
+        fea = self.E(x).squeeze(-1).squeeze(-1) # [batch, n_feats*4]
         S1_IPR = []
-        fea1 = self.mlp(fea)
+        fea1 = self.mlp(fea) # 经过了mlp，但是维度不变
         S1_IPR.append(fea1)
-        return fea1,S1_IPR
+        return fea1,S1_IPR # 返回的本质是一个东西？只不过一个用list给包起来了？
 
 @ARCH_REGISTRY.register()
 class DiffIRS1(nn.Module):
@@ -325,7 +325,7 @@ class DiffIRS1(nn.Module):
         LayerNorm_type = LayerNorm_type,   ## Other option 'BiasFree'
         )
 
-        self.E = CPEN(n_feats=64, n_encoder_res=n_encoder_res)
+        self.E = CPEN(n_feats=64, n_encoder_res=n_encoder_res) # CPEN也是直接在这个里面创建了一个类
 
         self.pixel_unshuffle = nn.PixelUnshuffle(4)
 
@@ -335,9 +335,9 @@ class DiffIRS1(nn.Module):
 
             IPRS1, S1_IPR = self.E(x,gt)
 
-            sr = self.G(x, IPRS1)
+            sr = self.G(x, IPRS1) # G就是一个完整的具有上采样和下采样的
 
-            return sr, S1_IPR
+            return sr, S1_IPR # S1_IPR应该是没变过
         else:
             IPRS1, _ = self.E(x,gt)
 

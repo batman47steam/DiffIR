@@ -258,14 +258,15 @@ class DiffIRS2Model(SRModel):
         
         l_total = 0
         loss_dict = OrderedDict()
-        _, S1_IPR = self.model_Es1(self.lq,self.gt)
+        _, S1_IPR = self.model_Es1(self.lq,self.gt) # 取出S1中训练好的CPEN
 
         if current_iter < self.encoder_iter:
             self.optimizer_e.zero_grad()
-            _, pred_IPR_list = self.net_g.module.diffusion(self.lq,S1_IPR[0])
+            #_, pred_IPR_list = self.net_g.module.diffusion(self.lq,S1_IPR[0]) # 单卡没有module的属性
+            _, pred_IPR_list = self.net_g.diffusion(self.lq,S1_IPR[0]) # 也接受了stage1的IPR，因为他目的就是在这个基础上加噪声，然后再用扩散，条件生成
             i=len(pred_IPR_list)-1
             S2_IPR=[pred_IPR_list[i]]
-            l_kd, l_abs = self.cri_kd(S1_IPR, S2_IPR)
+            l_kd, l_abs = self.cri_kd(S1_IPR, S2_IPR) # 用了kd_loss来衡量差异
             l_total += l_abs
             loss_dict['l_kd_%d'%(i)] = l_kd
             loss_dict['l_abs_%d'%(i)] = l_abs

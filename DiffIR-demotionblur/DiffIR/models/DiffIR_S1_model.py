@@ -134,7 +134,7 @@ class DiffIRS1Model(SRModel):
 
     def optimize_parameters(self, current_iter):
         self.optimizer_g.zero_grad()
-        self.output, _ = self.net_g(self.lq, self.gt)
+        self.output, _ = self.net_g(self.lq, self.gt) # 取出来的时候，CPEN的输出结果没要，对应的_
 
         l_total = 0
         loss_dict = OrderedDict()

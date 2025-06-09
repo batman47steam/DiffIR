@@ -33,7 +33,7 @@ def create_train_val_dataloader(opt, logger):
     for phase, dataset_opt in opt['datasets'].items():
         if phase == 'train':
             dataset_enlarge_ratio = dataset_opt.get('dataset_enlarge_ratio', 1)
-            train_set = build_dataset(dataset_opt)
+            train_set = build_dataset(dataset_opt) # dataset opt里面就包含了相应的路径，以及data_type的类型
             train_sampler = EnlargedSampler(train_set, opt['world_size'], opt['rank'], dataset_enlarge_ratio)
             train_loader = build_dataloader(
                 train_set,
