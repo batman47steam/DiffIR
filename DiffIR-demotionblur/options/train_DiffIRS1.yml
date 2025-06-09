@@ -14,7 +14,10 @@ datasets:
     dataroot_lq: Datasets/train/GoPro/input_crops
     #dataroot_gt: /root/motion_deblur/train_crops/target_crops # /home/ps/ComradeBionic/DiffIR/DiffIR-demotionblur/Datasets/train/GoPro/target_crops
     #dataroot_lq: /root/motion_deblur/train_crops/input_crops  # /home/ps/ComradeBionic/DiffIR/DiffIR-demotionblur/Datasets/train/GoPro/input_crops
-    geometric_augs: true
+    geometric_augs: false
+
+    mean: [0.5, 0.5, 0.5]
+    std: [0.5, 0.5, 0.5]
 
     filename_tmpl: '{}'
     io_backend:
@@ -23,10 +26,11 @@ datasets:
 
     num_worker_per_gpu: 12
     batch_size_per_gpu: 4
-    mini_batch_sizes: [8,4,2,2,1,1]             # Batch size per gpu   
-    iters: [92000,80000,38000,33000,33000,24000]
-    gt_size: 512   # Max patch size for progressive training
-    gt_sizes: [192, 256,320,384,464,512]  # Patch sizes for progressive training.
+    #mini_batch_sizes: [8,4,2,2,1,1]             # Batch size per gpu
+    #iters: [92000,80000,38000,33000,33000,24000]
+    iters: 240000
+    gt_size: 256   # Max patch size for progressive training
+    #gt_sizes: [192, 256,320,384,464,512]  # Patch sizes for progressive training.
 
     # data loader
     use_shuffle: true
@@ -75,11 +79,15 @@ train:
     weight_decay: 0
     betas: [0.9, 0.999]
 
+#  scheduler:
+#    type: CosineAnnealingRestartCyclicLR # 这里需要
+#    periods: [92000, 208000]
+#    restart_weights: [1,1]
+#    eta_mins: [0.000285,0.000001]
   scheduler:
-    type: CosineAnnealingRestartCyclicLR # 这里需要
-    periods: [92000, 208000]       
-    restart_weights: [1,1]
-    eta_mins: [0.000285,0.000001]  
+    type: TrueCosineAnnealingLR
+    T_max: 240000
+    eta_min: !!float 1e-7
 
   total_iter: 300000
   warmup_iter: -1  # no warm up
@@ -98,8 +106,8 @@ train:
 # Uncomment these for validation
 # validation settings
 val:
-  val_freq: !!float 5e3
-  save_img: False
+  val_freq: !!float 5e3 # 每5000下再val一下
+  save_img: False # 保持比较好
 
   metrics:
     psnr: # metric name

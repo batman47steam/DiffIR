@@ -49,7 +49,7 @@ class DeblurPairedDataset(data.Dataset):
         # file client (io backend)
         self.file_client = None
         self.io_backend_opt = opt['io_backend']
-        self.mean = opt['mean'] if 'mean' in opt else None
+        self.mean = opt['mean'] if 'mean' in opt else None # 可能要统一改成0.5
         self.std = opt['std'] if 'std' in opt else None
         
         self.gt_folder, self.lq_folder = opt['dataroot_gt'], opt['dataroot_lq']
@@ -65,7 +65,7 @@ class DeblurPairedDataset(data.Dataset):
                 [self.lq_folder, self.gt_folder], ['lq', 'gt'])
         elif 'meta_info_file' in self.opt and self.opt[
                 'meta_info_file'] is not None:
-            self.paths = paired_paths_from_meta_info_file(
+            self.paths = paired_paths_from_meta_info_file( # 取出数据所对应的文件路径
                 [self.lq_folder, self.gt_folder], ['lq', 'gt'],
                 self.opt['meta_info_file'], self.filename_tmpl)
         else:
@@ -74,7 +74,7 @@ class DeblurPairedDataset(data.Dataset):
                 self.filename_tmpl)
 
         if self.opt['phase'] == 'train':
-            self.geometric_augs = opt['geometric_augs']
+            self.geometric_augs = opt['geometric_augs'] # 设置为不需要
 
     def __getitem__(self, index):
         if self.file_client is None:
@@ -99,6 +99,7 @@ class DeblurPairedDataset(data.Dataset):
         except:
             raise Exception("lq path {} not working".format(lq_path))
 
+        # 对于我的任务来说这些都不需要
         # augmentation for training
         if self.opt['phase'] == 'train':
             gt_size = self.opt['gt_size']
@@ -117,7 +118,7 @@ class DeblurPairedDataset(data.Dataset):
         img_gt, img_lq = img2tensor([img_gt, img_lq],
                                     bgr2rgb=True,
                                     float32=True)
-        # normalize
+        # normalize 注意下，最好还是整个归一化的
         if self.mean is not None or self.std is not None:
             normalize(img_lq, self.mean, self.std, inplace=True)
             normalize(img_gt, self.mean, self.std, inplace=True)

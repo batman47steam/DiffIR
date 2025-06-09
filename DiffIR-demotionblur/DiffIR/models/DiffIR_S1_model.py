@@ -82,7 +82,7 @@ class DiffIRS1Model(SRModel):
                 self.schedulers.append(
                     lr_scheduler.CosineAnnealingRestartCyclicLR(
                         optimizer, **train_opt['scheduler']))
-        elif scheduler_type == 'TrueCosineAnnealingLR':
+        elif scheduler_type == 'TrueCosineAnnealingLR': # 正常的cos学习率
             print('..', 'cosineannealingLR')
             for optimizer in self.optimizers:
                 self.schedulers.append(

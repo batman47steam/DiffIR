@@ -174,7 +174,8 @@ def train_pipeline(root_path):
                 break
             # update learning rate
             model.update_learning_rate(current_iter, warmup_iter=opt['train'].get('warmup_iter', -1))
-         
+
+            # 感觉没必要用progressive learning，直接注释
             ### ------Progressive learning ---------------------
             j = ((current_iter>groups) !=True).nonzero()[0]
             if len(j) == 0:
