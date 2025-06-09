@@ -10,8 +10,10 @@ datasets:
   train:
     name: TrainSet
     type: DeblurPairedDataset
-    dataroot_gt: /root/motion_deblur/train_crops/target_crops # /home/ps/ComradeBionic/DiffIR/DiffIR-demotionblur/Datasets/train/GoPro/target_crops
-    dataroot_lq: /root/motion_deblur/train_crops/input_crops  # /home/ps/ComradeBionic/DiffIR/DiffIR-demotionblur/Datasets/train/GoPro/input_crops
+    dataroot_gt: Datasets/train/GoPro/target_crops
+    dataroot_lq: Datasets/train/GoPro/input_crops
+    #dataroot_gt: /root/motion_deblur/train_crops/target_crops # /home/ps/ComradeBionic/DiffIR/DiffIR-demotionblur/Datasets/train/GoPro/target_crops
+    #dataroot_lq: /root/motion_deblur/train_crops/input_crops  # /home/ps/ComradeBionic/DiffIR/DiffIR-demotionblur/Datasets/train/GoPro/input_crops
     geometric_augs: true
 
     filename_tmpl: '{}'
@@ -20,7 +22,7 @@ datasets:
 
 
     num_worker_per_gpu: 12
-    batch_size_per_gpu: 8
+    batch_size_per_gpu: 4
     mini_batch_sizes: [8,4,2,2,1,1]             # Batch size per gpu   
     iters: [92000,80000,38000,33000,33000,24000]
     gt_size: 512   # Max patch size for progressive training
@@ -35,8 +37,10 @@ datasets:
   val:
     name: ValSet
     type: DeblurPairedDataset
-    dataroot_gt: /root/motion_deblur/val/GoPro/target_crops # /home/ps/ComradeBionic/DiffIR/DiffIR-demotionblur/Datasets/val/GoPro/target_crops
-    dataroot_lq: /root/motion_deblur/val/GoPro/input_crops # /home/ps/ComradeBionic/DiffIR/DiffIR-demotionblur/Datasets/val/GoPro/input_crops
+    dataroot_gt: Datasets/val/GoPro/target_crops
+    dataroot_lq: Datasets/val/GoPro/input_crops
+    #dataroot_gt: /root/motion_deblur/val/GoPro/target_crops # /home/ps/ComradeBionic/DiffIR/DiffIR-demotionblur/Datasets/val/GoPro/target_crops
+    #dataroot_lq: /root/motion_deblur/val/GoPro/input_crops # /home/ps/ComradeBionic/DiffIR/DiffIR-demotionblur/Datasets/val/GoPro/input_crops
     io_backend:
       type: disk
 
