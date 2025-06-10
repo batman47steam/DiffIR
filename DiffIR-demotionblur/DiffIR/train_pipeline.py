@@ -154,8 +154,8 @@ def train_pipeline(root_path):
     gt_size = opt['datasets']['train'].get('gt_size')
     mini_gt_sizes = opt['datasets']['train'].get('gt_sizes')
 
-    groups = np.array([sum(iters[0:i + 1]) for i in range(0, len(iters))])
-    logger_j = [True] * len(groups)
+    #groups = np.array([sum(iters[0:i + 1]) for i in range(0, len(iters))])
+    #logger_j = [True] * len(groups)
     # training
     logger.info(f'Start training from epoch: {start_epoch}, iter: {current_iter}')
     data_timer, iter_timer = AvgTimer(), AvgTimer()
@@ -177,34 +177,34 @@ def train_pipeline(root_path):
 
             # 感觉没必要用progressive learning，直接注释
             ### ------Progressive learning ---------------------
-            j = ((current_iter>groups) !=True).nonzero()[0]
-            if len(j) == 0:
-                bs_j = len(groups) - 1
-            else:
-                bs_j = j[0]
-
-            mini_gt_size = mini_gt_sizes[bs_j]
-            mini_batch_size = mini_batch_sizes[bs_j]
-            
-            if logger_j[bs_j]:
-                logger.info('\n Updating Patch_Size to {} and Batch_Size to {} \n'.format(mini_gt_size, mini_batch_size*torch.cuda.device_count())) 
-                logger_j[bs_j] = False
-
+            # j = ((current_iter>groups) !=True).nonzero()[0]
+            # if len(j) == 0:
+            #     bs_j = len(groups) - 1
+            # else:
+            #     bs_j = j[0]
+            #
+            # mini_gt_size = mini_gt_sizes[bs_j]
+            # mini_batch_size = mini_batch_sizes[bs_j]
+            #
+            # if logger_j[bs_j]:
+            #     logger.info('\n Updating Patch_Size to {} and Batch_Size to {} \n'.format(mini_gt_size, mini_batch_size*torch.cuda.device_count()))
+            #     logger_j[bs_j] = False
+            #
             lq = train_data['lq']
             gt = train_data['gt']
-
-            if mini_batch_size < batch_size:
-                indices = random.sample(range(0, batch_size), k=mini_batch_size)
-                lq = lq[indices]
-                gt = gt[indices]
-
-            if mini_gt_size < gt_size:
-                x0 = int((gt_size - mini_gt_size) * random.random())
-                y0 = int((gt_size - mini_gt_size) * random.random())
-                x1 = x0 + mini_gt_size
-                y1 = y0 + mini_gt_size
-                lq = lq[:,:,x0:x1,y0:y1]
-                gt = gt[:,:,x0:x1,y0:y1]
+            #
+            # if mini_batch_size < batch_size:
+            #     indices = random.sample(range(0, batch_size), k=mini_batch_size)
+            #     lq = lq[indices]
+            #     gt = gt[indices]
+            #
+            # if mini_gt_size < gt_size:
+            #     x0 = int((gt_size - mini_gt_size) * random.random())
+            #     y0 = int((gt_size - mini_gt_size) * random.random())
+            #     x1 = x0 + mini_gt_size
+            #     y1 = y0 + mini_gt_size
+            #     lq = lq[:,:,x0:x1,y0:y1]
+            #     gt = gt[:,:,x0:x1,y0:y1]
             ###-------------------------------------------
 
 
