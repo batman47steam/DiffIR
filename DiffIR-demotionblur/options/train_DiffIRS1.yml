@@ -10,14 +10,16 @@ datasets:
   train:
     name: TrainSet
     type: DeblurPairedDataset
-    dataroot_gt: Datasets/train/GoPro/target_crops
-    dataroot_lq: Datasets/train/GoPro/input_crops
+    #dataroot_gt: Datasets/train/GoPro/target_crops
+    #dataroot_lq: Datasets/train/GoPro/input_crops
+    dataroot_gt: nlos-datasets/STL-10/B/train
+    dataroot_lq: nlos-datasets/STL-10/C_dark_1_d100_occluder/train
     #dataroot_gt: /root/motion_deblur/train_crops/target_crops # /home/ps/ComradeBionic/DiffIR/DiffIR-demotionblur/Datasets/train/GoPro/target_crops
     #dataroot_lq: /root/motion_deblur/train_crops/input_crops  # /home/ps/ComradeBionic/DiffIR/DiffIR-demotionblur/Datasets/train/GoPro/input_crops
     geometric_augs: false
 
-    mean: [0.5, 0.5, 0.5]
-    std: [0.5, 0.5, 0.5]
+#    mean: [0.5, 0.5, 0.5]
+#    std: [0.5, 0.5, 0.5]
 
     filename_tmpl: '{}'
     io_backend:
@@ -41,8 +43,10 @@ datasets:
   val:
     name: ValSet
     type: DeblurPairedDataset
-    dataroot_gt: Datasets/val/GoPro/target_crops
-    dataroot_lq: Datasets/val/GoPro/input_crops
+    #dataroot_gt: Datasets/val/GoPro/target_crops
+    #dataroot_lq: Datasets/val/GoPro/input_crops
+    dataroot_gt: nlos-datasets/STL-10/stl10_genera/real_withstl10
+    dataroot_lq: nlos-datasets/STL-10/stl10_genera/C_dark_1_d100_occluder_test/real
     #dataroot_gt: /root/motion_deblur/val/GoPro/target_crops # /home/ps/ComradeBionic/DiffIR/DiffIR-demotionblur/Datasets/val/GoPro/target_crops
     #dataroot_lq: /root/motion_deblur/val/GoPro/input_crops # /home/ps/ComradeBionic/DiffIR/DiffIR-demotionblur/Datasets/val/GoPro/input_crops
     io_backend:
@@ -55,7 +59,7 @@ network_g:
   inp_channels: 3
   out_channels: 3
   dim: 48
-  num_blocks: [3,5,6,6]
+  num_blocks: [2,2,2,2]
   num_refinement_blocks: 4
   heads: [1,2,4,8]
   ffn_expansion_factor: 2
@@ -86,7 +90,7 @@ train:
 #    eta_mins: [0.000285,0.000001]
   scheduler:
     type: TrueCosineAnnealingLR
-    T_max: 240000
+    T_max: 300000
     eta_min: !!float 1e-7
 
   total_iter: 300000
@@ -107,7 +111,7 @@ train:
 # validation settings
 val:
   val_freq: !!float 5e3 # 每5000下再val一下
-  save_img: False # 保持比较好
+  save_img: True # 保持比较好
 
   metrics:
     psnr: # metric name
