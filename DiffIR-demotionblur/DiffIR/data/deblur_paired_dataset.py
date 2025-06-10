@@ -99,20 +99,24 @@ class DeblurPairedDataset(data.Dataset):
         except:
             raise Exception("lq path {} not working".format(lq_path))
 
+        gt_size = self.opt['gt_size']
+        img_gt = cv2.resize(img_gt, (gt_size, gt_size), interpolation=cv2.INTER_CUBIC)
+        img_lq = cv2.resize(img_lq, (gt_size, gt_size), interpolation=cv2.INTER_CUBIC)
+
         # 对于我的任务来说这些都不需要
         # augmentation for training
-        if self.opt['phase'] == 'train':
-            gt_size = self.opt['gt_size']
-            # padding
-            img_gt, img_lq = padding(img_gt, img_lq, gt_size)
-
-            # random crop
-            img_gt, img_lq = paired_random_crop(img_gt, img_lq, gt_size, scale,
-                                                gt_path)
-
-            # flip, rotation augmentations
-            if self.geometric_augs:
-                img_gt, img_lq = random_augmentation(img_gt, img_lq)
+        # if self.opt['phase'] == 'train':
+        #     gt_size = self.opt['gt_size']
+        #     # padding
+        #     img_gt, img_lq = padding(img_gt, img_lq, gt_size) # 先统一的padding，然后再crop
+        #
+        #     # random crop
+        #     img_gt, img_lq = paired_random_crop(img_gt, img_lq, gt_size, scale,
+        #                                         gt_path)
+        #
+        #     # flip, rotation augmentations
+        #     if self.geometric_augs:
+        #         img_gt, img_lq = random_augmentation(img_gt, img_lq)
             
         # BGR to RGB, HWC to CHW, numpy to tensor
         img_gt, img_lq = img2tensor([img_gt, img_lq],
