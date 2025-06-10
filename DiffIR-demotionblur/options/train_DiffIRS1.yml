@@ -43,6 +43,7 @@ datasets:
   val:
     name: ValSet
     type: DeblurPairedDataset
+    gt_size: 256
     #dataroot_gt: Datasets/val/GoPro/target_crops
     #dataroot_lq: Datasets/val/GoPro/input_crops
     dataroot_gt: nlos-datasets/STL-10/stl10_genera/real_withstl10
@@ -110,7 +111,7 @@ train:
 # Uncomment these for validation
 # validation settings
 val:
-  val_freq: !!float 5e3 # 每5000下再val一下
+  val_freq: !!float 2e3 # 每5000下再val一下
   save_img: True # 保持比较好
 
   metrics:
@@ -121,7 +122,7 @@ val:
 
 # logging settings
 logger:
-  print_freq: 1000
+  print_freq: 500
   save_checkpoint_freq: !!float 5e3
   use_tb_logger: true
   wandb:
