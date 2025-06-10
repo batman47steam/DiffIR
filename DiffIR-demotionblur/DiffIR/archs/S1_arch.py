@@ -218,7 +218,8 @@ class DIRformer(nn.Module):
         self.decoder_level1 = nn.Sequential(*[TransformerBlock(dim=int(dim*2**1), num_heads=heads[0], ffn_expansion_factor=ffn_expansion_factor, bias=bias, LayerNorm_type=LayerNorm_type) for i in range(num_blocks[0])])
         
         self.refinement = nn.Sequential(*[TransformerBlock(dim=int(dim*2**1), num_heads=heads[0], ffn_expansion_factor=ffn_expansion_factor, bias=bias, LayerNorm_type=LayerNorm_type) for i in range(num_refinement_blocks)])
-            
+
+        # 输出就是正常的conv，没有激活函数
         self.output = nn.Conv2d(int(dim*2**1), out_channels, kernel_size=3, stride=1, padding=1, bias=bias)
 
     def forward(self, inp_img,k_v):
@@ -251,7 +252,9 @@ class DIRformer(nn.Module):
         
         out_dec_level1,_ = self.refinement([out_dec_level1,k_v])
 
-        out_dec_level1 = self.output(out_dec_level1) + inp_img
+        # 比较通用的玩法了，输出的时候再额外的加上输入
+        #out_dec_level1 = self.output(out_dec_level1) + inp_img
+        out_dec_level1 = self.output(out_dec_level1)
 
 
         return out_dec_level1
