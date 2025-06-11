@@ -144,6 +144,13 @@ class TransformerBlock(nn.Module):
 
         return [x,k_v] # x是经过改变了的，但是k_v应该没变，但是在attention内部确实是有个映射的过程
 
+class LayerNorm2d(nn.LayerNorm):
+    def forward(self, x: torch.Tensor):
+        x = x.permute(0, 2, 3, 1)
+        x = nn.functional.layer_norm(x, self.normalized_shape, self.weight, self.bias, self.eps)
+        x = x.permute(0, 3, 1, 2)
+        return x
+
 class OverlapPatchEmbed(nn.Module):
     def __init__(self, in_c=3, embed_dim=48, bias=False):
         super(OverlapPatchEmbed, self).__init__()
@@ -182,7 +189,7 @@ class DIRformer(nn.Module):
         out_channels=3, 
         dim = 48,
         num_blocks = [4,6,6,8], 
-        num_refinement_blocks = 4,
+        num_refinement_blocks = 4, # 最后的transformer block数目
         heads = [1,2,4,8],
         ffn_expansion_factor = 2.66,
         bias = False,
@@ -191,41 +198,53 @@ class DIRformer(nn.Module):
 
         super(DIRformer, self).__init__()
 
-        self.patch_embed = OverlapPatchEmbed(inp_channels, dim)
+        self.patch_embed = nn.Sequential(
+            nn.Conv2d(inp_channels, dim, kernel_size=3, stride=2, padding=1, bias=False),
+            LayerNorm2d(dim),
+            nn.GELU(),
+            nn.Conv2d(dim, dim*2, kernel_size=3, stride=2, padding=1, bias=False),
+            LayerNorm2d(dim*2),
+        )
+
+        #self.patch_embed = OverlapPatchEmbed(inp_channels, dim) # 没有进行降采样，单纯通道数的映射
 
         self.encoder_level1 = nn.Sequential(*[TransformerBlock(dim=dim, num_heads=heads[0], ffn_expansion_factor=ffn_expansion_factor, bias=bias, LayerNorm_type=LayerNorm_type) for i in range(num_blocks[0])])
         
-        self.down1_2 = Downsample(dim) ## From Level 1 to Level 2
+        self.down1_2 = Downsample(dim) ## From Level 1 to Level 2，3x3卷积改变通道数，然后再unshuffle降采样
         self.encoder_level2 = nn.Sequential(*[TransformerBlock(dim=int(dim*2**1), num_heads=heads[1], ffn_expansion_factor=ffn_expansion_factor, bias=bias, LayerNorm_type=LayerNorm_type) for i in range(num_blocks[1])])
         
         self.down2_3 = Downsample(int(dim*2**1)) ## From Level 2 to Level 3
         self.encoder_level3 = nn.Sequential(*[TransformerBlock(dim=int(dim*2**2), num_heads=heads[2], ffn_expansion_factor=ffn_expansion_factor, bias=bias, LayerNorm_type=LayerNorm_type) for i in range(num_blocks[2])])
 
-        self.down3_4 = Downsample(int(dim*2**2)) ## From Level 3 to Level 4
-        self.latent = nn.Sequential(*[TransformerBlock(dim=int(dim*2**3), num_heads=heads[3], ffn_expansion_factor=ffn_expansion_factor, bias=bias, LayerNorm_type=LayerNorm_type) for i in range(num_blocks[3])])
-        
-        self.up4_3 = Upsample(int(dim*2**3)) ## From Level 4 to Level 3
-        self.reduce_chan_level3 = nn.Conv2d(int(dim*2**3), int(dim*2**2), kernel_size=1, bias=bias)
-        self.decoder_level3 = nn.Sequential(*[TransformerBlock(dim=int(dim*2**2), num_heads=heads[2], ffn_expansion_factor=ffn_expansion_factor, bias=bias, LayerNorm_type=LayerNorm_type) for i in range(num_blocks[2])])
-
-
-        self.up3_2 = Upsample(int(dim*2**2)) ## From Level 3 to Level 2
-        self.reduce_chan_level2 = nn.Conv2d(int(dim*2**2), int(dim*2**1), kernel_size=1, bias=bias)
-        self.decoder_level2 = nn.Sequential(*[TransformerBlock(dim=int(dim*2**1), num_heads=heads[1], ffn_expansion_factor=ffn_expansion_factor, bias=bias, LayerNorm_type=LayerNorm_type) for i in range(num_blocks[1])])
-        
-        self.up2_1 = Upsample(int(dim*2**1))  ## From Level 2 to Level 1  (NO 1x1 conv to reduce channels)
-
-        self.decoder_level1 = nn.Sequential(*[TransformerBlock(dim=int(dim*2**1), num_heads=heads[0], ffn_expansion_factor=ffn_expansion_factor, bias=bias, LayerNorm_type=LayerNorm_type) for i in range(num_blocks[0])])
+        # self.down3_4 = Downsample(int(dim*2**2)) ## From Level 3 to Level 4
+        # self.latent = nn.Sequential(*[TransformerBlock(dim=int(dim*2**3), num_heads=heads[3], ffn_expansion_factor=ffn_expansion_factor, bias=bias, LayerNorm_type=LayerNorm_type) for i in range(num_blocks[3])])
+        #
+        # self.up4_3 = Upsample(int(dim*2**3)) ## From Level 4 to Level 3
+        # self.reduce_chan_level3 = nn.Conv2d(int(dim*2**3), int(dim*2**2), kernel_size=1, bias=bias)
+        # self.decoder_level3 = nn.Sequential(*[TransformerBlock(dim=int(dim*2**2), num_heads=heads[2], ffn_expansion_factor=ffn_expansion_factor, bias=bias, LayerNorm_type=LayerNorm_type) for i in range(num_blocks[2])])
+        #
+        #
+        # self.up3_2 = Upsample(int(dim*2**2)) ## From Level 3 to Level 2
+        # self.reduce_chan_level2 = nn.Conv2d(int(dim*2**2), int(dim*2**1), kernel_size=1, bias=bias)
+        # self.decoder_level2 = nn.Sequential(*[TransformerBlock(dim=int(dim*2**1), num_heads=heads[1], ffn_expansion_factor=ffn_expansion_factor, bias=bias, LayerNorm_type=LayerNorm_type) for i in range(num_blocks[1])])
+        #
+        # self.up2_1 = Upsample(int(dim*2**1))  ## From Level 2 to Level 1  (NO 1x1 conv to reduce channels)
+        #
+        # self.decoder_level1 = nn.Sequential(*[TransformerBlock(dim=int(dim*2**1), num_heads=heads[0], ffn_expansion_factor=ffn_expansion_factor, bias=bias, LayerNorm_type=LayerNorm_type) for i in range(num_blocks[0])])
         
         self.refinement = nn.Sequential(*[TransformerBlock(dim=int(dim*2**1), num_heads=heads[0], ffn_expansion_factor=ffn_expansion_factor, bias=bias, LayerNorm_type=LayerNorm_type) for i in range(num_refinement_blocks)])
 
+        self.output = nn.Sequential(
+            nn.Conv2d()
+        )
+
         # 输出就是正常的conv，没有激活函数
-        self.output = nn.Conv2d(int(dim*2**1), out_channels, kernel_size=3, stride=1, padding=1, bias=bias)
+        #self.output = nn.Conv2d(int(dim*2**1), out_channels, kernel_size=3, stride=1, padding=1, bias=bias)
 
     def forward(self, inp_img,k_v):
 
-        inp_enc_level1 = self.patch_embed(inp_img)
-        out_enc_level1,_ = self.encoder_level1([inp_enc_level1,k_v])
+        inp_enc_level1 = self.patch_embed(inp_img) # 不改变空间尺寸
+        out_enc_level1,_ = self.encoder_level1([inp_enc_level1,k_v]) # 在原始图像上attention
         
         inp_enc_level2 = self.down1_2(out_enc_level1)
         out_enc_level2,_ = self.encoder_level2([inp_enc_level2,k_v])
@@ -233,7 +252,7 @@ class DIRformer(nn.Module):
         inp_enc_level3 = self.down2_3(out_enc_level2)
         out_enc_level3,_ = self.encoder_level3([inp_enc_level3,k_v]) 
 
-        inp_enc_level4 = self.down3_4(out_enc_level3)        
+        inp_enc_level4 = self.down3_4(out_enc_level3)   # 32x32x384
         latent,_ = self.latent([inp_enc_level4,k_v]) 
                         
         inp_dec_level3 = self.up4_3(latent)
@@ -250,7 +269,7 @@ class DIRformer(nn.Module):
         inp_dec_level1 = torch.cat([inp_dec_level1, out_enc_level1], 1)
         out_dec_level1,_ = self.decoder_level1([inp_dec_level1,k_v])
         
-        out_dec_level1,_ = self.refinement([out_dec_level1,k_v])
+        out_dec_level1,_ = self.refinement([out_dec_level1,k_v]) # refinement这里也是堆叠了transformer block, refinement这里也接受了调制
 
         # 比较通用的玩法了，输出的时候再额外的加上输入
         #out_dec_level1 = self.output(out_dec_level1) + inp_img
@@ -296,7 +315,7 @@ class CPEN(nn.Module):
         fea = self.E(x).squeeze(-1).squeeze(-1) # [batch, n_feats*4]
         S1_IPR = []
         fea1 = self.mlp(fea) # 经过了mlp，但是维度不变
-        S1_IPR.append(fea1)
+        S1_IPR.append(fea1) # fea1的维度就是256，是不是太低了
         return fea1,S1_IPR # 返回的本质是一个东西？只不过一个用list给包起来了？
 
 @ARCH_REGISTRY.register()
