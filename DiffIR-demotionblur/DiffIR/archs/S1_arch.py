@@ -79,7 +79,7 @@ class FeedForward(nn.Module):
         )
     def forward(self, x,k_v):
         b,c,h,w = x.shape
-        k_v=self.kernel(k_v).view(-1,c*2,1,1)
+        k_v=self.kernel(k_v).view(-1,c*2,1,1) # 这个也是view了以后加上去的
         k_v1,k_v2=k_v.chunk(2, dim=1)
         x = x*k_v1+k_v2  # 感觉相对简单，也没进行额外的映射
         x = self.project_in(x)
@@ -128,7 +128,7 @@ class Attention(nn.Module):
 
 
 class TransformerBlock(nn.Module):
-    def __init__(self, dim, num_heads, ffn_expansion_factor, bias, LayerNorm_type):
+    def __init__(self, dim, num_heads, ffn_expansion_factor, bias, LayerNorm_type, drop_out_rate=0.):
         super(TransformerBlock, self).__init__()
 
         self.norm1 = LayerNorm(dim, LayerNorm_type)
@@ -136,11 +136,14 @@ class TransformerBlock(nn.Module):
         self.norm2 = LayerNorm(dim, LayerNorm_type)
         self.ffn = FeedForward(dim, ffn_expansion_factor, bias)
 
+        self.dropout1 = nn.Dropout(drop_out_rate) if drop_out_rate > 0. else nn.Identity()
+        self.dropout2 = nn.Dropout(drop_out_rate) if drop_out_rate > 0. else nn.Identity()
+
     def forward(self, y):
         x = y[0]
         k_v=y[1]
-        x = x + self.attn(self.norm1(x),k_v)
-        x = x + self.ffn(self.norm2(x),k_v)
+        x = x + self.dropout1(self.attn(self.norm1(x),k_v))
+        x = x + self.dropout2(self.ffn(self.norm2(x),k_v))
 
         return [x,k_v] # x是经过改变了的，但是k_v应该没变，但是在attention内部确实是有个映射的过程
 
@@ -194,6 +197,7 @@ class DIRformer(nn.Module):
         ffn_expansion_factor = 2.66,
         bias = False,
         LayerNorm_type = 'WithBias',   ## Other option 'BiasFree'
+        drop_out_rate = 0.,
     ):
 
         super(DIRformer, self).__init__()
@@ -208,13 +212,13 @@ class DIRformer(nn.Module):
 
         #self.patch_embed = OverlapPatchEmbed(inp_channels, dim) # 没有进行降采样，单纯通道数的映射
 
-        self.encoder_level1 = nn.Sequential(*[TransformerBlock(dim=dim*2, num_heads=heads[0], ffn_expansion_factor=ffn_expansion_factor, bias=bias, LayerNorm_type=LayerNorm_type) for i in range(num_blocks[0])])
+        self.encoder_level1 = nn.Sequential(*[TransformerBlock(dim=dim*2, num_heads=heads[0], ffn_expansion_factor=ffn_expansion_factor, bias=bias, LayerNorm_type=LayerNorm_type, drop_out_rate=drop_out_rate) for i in range(num_blocks[0])])
         
         self.down1_2 = Downsample(dim*2**1) ## From Level 1 to Level 2，3x3卷积改变通道数，然后再unshuffle降采样
-        self.encoder_level2 = nn.Sequential(*[TransformerBlock(dim=int(dim*2**2), num_heads=heads[1], ffn_expansion_factor=ffn_expansion_factor, bias=bias, LayerNorm_type=LayerNorm_type) for i in range(num_blocks[1])])
+        self.encoder_level2 = nn.Sequential(*[TransformerBlock(dim=int(dim*2**2), num_heads=heads[1], ffn_expansion_factor=ffn_expansion_factor, bias=bias, LayerNorm_type=LayerNorm_type, drop_out_rate=drop_out_rate) for i in range(num_blocks[1])])
         
         self.down2_3 = Downsample(int(dim*2**2)) ## From Level 2 to Level 3
-        self.encoder_level3 = nn.Sequential(*[TransformerBlock(dim=int(dim*2**3), num_heads=heads[2], ffn_expansion_factor=ffn_expansion_factor, bias=bias, LayerNorm_type=LayerNorm_type) for i in range(num_blocks[2])])
+        self.encoder_level3 = nn.Sequential(*[TransformerBlock(dim=int(dim*2**3), num_heads=heads[2], ffn_expansion_factor=ffn_expansion_factor, bias=bias, LayerNorm_type=LayerNorm_type, drop_out_rate=drop_out_rate) for i in range(num_blocks[2])])
 
         # self.down3_4 = Downsample(int(dim*2**2)) ## From Level 3 to Level 4
         # self.latent = nn.Sequential(*[TransformerBlock(dim=int(dim*2**3), num_heads=heads[3], ffn_expansion_factor=ffn_expansion_factor, bias=bias, LayerNorm_type=LayerNorm_type) for i in range(num_blocks[3])])
@@ -232,7 +236,7 @@ class DIRformer(nn.Module):
         #
         # self.decoder_level1 = nn.Sequential(*[TransformerBlock(dim=int(dim*2**1), num_heads=heads[0], ffn_expansion_factor=ffn_expansion_factor, bias=bias, LayerNorm_type=LayerNorm_type) for i in range(num_blocks[0])])
         
-        self.refinement = nn.Sequential(*[TransformerBlock(dim=int(dim*2**3), num_heads=heads[-1], ffn_expansion_factor=ffn_expansion_factor, bias=bias, LayerNorm_type=LayerNorm_type) for i in range(num_refinement_blocks)])
+        self.refinement = nn.Sequential(*[TransformerBlock(dim=int(dim*2**3), num_heads=heads[-1], ffn_expansion_factor=ffn_expansion_factor, bias=bias, LayerNorm_type=LayerNorm_type, drop_out_rate=drop_out_rate) for i in range(num_refinement_blocks)])
 
         self.output = nn.Sequential(
             nn.Conv2d(dim*2**3, 16*16*3, kernel_size=3, stride=1, padding=1),
@@ -338,6 +342,7 @@ class DiffIRS1(nn.Module):
         ffn_expansion_factor = 2.66,
         bias = False,
         LayerNorm_type = 'WithBias',   ## Other option 'BiasFree'
+        drop_out_rate = 0.,
         ):
         super(DiffIRS1, self).__init__()
 
@@ -352,6 +357,7 @@ class DiffIRS1(nn.Module):
         ffn_expansion_factor = ffn_expansion_factor,
         bias = bias,
         LayerNorm_type = LayerNorm_type,   ## Other option 'BiasFree'
+        drop_out_rate = drop_out_rate,
         )
 
         self.E = CPEN(n_feats=64, n_encoder_res=n_encoder_res) # CPEN也是直接在这个里面创建了一个类
