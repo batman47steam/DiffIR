@@ -266,7 +266,7 @@ class DiffIRS2Model(SRModel):
             _, pred_IPR_list = self.net_g.diffusion(self.lq,S1_IPR[0]) # 也接受了stage1的IPR，因为他目的就是在这个基础上加噪声，然后再用扩散，条件生成
             i=len(pred_IPR_list)-1
             S2_IPR=[pred_IPR_list[i]]
-            l_kd, l_abs = self.cri_kd(S1_IPR, S2_IPR) # 用了kd_loss来衡量差异
+            l_kd, l_abs = self.cri_kd(S1_IPR, S2_IPR) # 用了kd_loss来衡量差异，衡量的都是prior,IPR的差异
             l_total += l_abs
             loss_dict['l_kd_%d'%(i)] = l_kd
             loss_dict['l_abs_%d'%(i)] = l_abs
@@ -275,14 +275,14 @@ class DiffIRS2Model(SRModel):
             self.optimizer_e.step()
         else:
             self.optimizer_g.zero_grad()
-            self.output, pred_IPR_list = self.net_g(self.lq,S1_IPR[0])
+            self.output, pred_IPR_list = self.net_g(self.lq,S1_IPR[0]) # 衡量了网络输出的差异
             l_pix = self.cri_pix(self.output, self.gt)
             l_total += l_pix
             loss_dict['l_pix'] = l_pix
 
             i=len(pred_IPR_list)-1
             S2_IPR=[pred_IPR_list[i]]
-            l_kd, l_abs = self.cri_kd(S1_IPR, S2_IPR)
+            l_kd, l_abs = self.cri_kd(S1_IPR, S2_IPR) # 当然也衡量了IPR的差异
             l_total += l_abs
             loss_dict['l_kd_%d'%(i)] = l_kd
             loss_dict['l_abs_%d'%(i)] = l_abs
