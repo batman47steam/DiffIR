@@ -237,7 +237,7 @@ class DIRformer(nn.Module):
         self.output = nn.Sequential(
             nn.Conv2d(dim*2**3, 16*16*3, kernel_size=3, stride=1, padding=1),
             nn.PixelShuffle(16),
-            #nn.Tanh()
+            nn.Tanh()
         )
 
         # 输出就是正常的conv，没有激活函数
@@ -245,7 +245,7 @@ class DIRformer(nn.Module):
 
     def forward(self, inp_img,k_v):
         
-        #inp_img = (inp_img-0.5)/0.5
+        inp_img = (inp_img-0.5)/0.5
 
         inp_enc_level1 = self.patch_embed(inp_img) # 4,96,64,64
         out_enc_level1,_ = self.encoder_level1([inp_enc_level1,k_v]) # 在原始图像上attention
@@ -281,7 +281,7 @@ class DIRformer(nn.Module):
         #out_dec_level1 = self.output(out_dec_level1) + inp_img
         #out_dec_level1 = self.output(out_dec_level1)
 
-        #out_dec_level1 = out_dec_level1*0.5+0.5
+        out_dec_level1 = (out_dec_level1+1)/2.0
         
         return out_dec_level1
 
