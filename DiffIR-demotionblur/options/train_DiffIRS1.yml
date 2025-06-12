@@ -18,8 +18,8 @@ datasets:
     #dataroot_lq: /root/motion_deblur/train_crops/input_crops  # /home/ps/ComradeBionic/DiffIR/DiffIR-demotionblur/Datasets/train/GoPro/input_crops
     geometric_augs: false
 
-#    mean: [0.5, 0.5, 0.5]
-#    std: [0.5, 0.5, 0.5]
+    # mean: [0.5, 0.5, 0.5]
+    # std: [0.5, 0.5, 0.5]
 
     filename_tmpl: '{}'
     io_backend:
@@ -27,10 +27,10 @@ datasets:
 
 
     num_worker_per_gpu: 12
-    batch_size_per_gpu: 4
+    batch_size_per_gpu: 32
     #mini_batch_sizes: [8,4,2,2,1,1]             # Batch size per gpu
     #iters: [92000,80000,38000,33000,33000,24000]
-    iters: 240000
+    #iters: 240000
     gt_size: 256   # Max patch size for progressive training
     #gt_sizes: [192, 256,320,384,464,512]  # Patch sizes for progressive training.
 
@@ -41,17 +41,22 @@ datasets:
 
   # Uncomment these for validation
   val:
-    name: ValSet
+    name: Real
     type: DeblurPairedDataset
     gt_size: 256
-    #dataroot_gt: Datasets/val/GoPro/target_crops
-    #dataroot_lq: Datasets/val/GoPro/input_crops
     dataroot_gt: nlos-datasets/STL-10/stl10_genera/real_withstl10
     dataroot_lq: nlos-datasets/STL-10/stl10_genera/C_dark_1_d100_occluder_test/real
-    #dataroot_gt: /root/motion_deblur/val/GoPro/target_crops # /home/ps/ComradeBionic/DiffIR/DiffIR-demotionblur/Datasets/val/GoPro/target_crops
-    #dataroot_lq: /root/motion_deblur/val/GoPro/input_crops # /home/ps/ComradeBionic/DiffIR/DiffIR-demotionblur/Datasets/val/GoPro/input_crops
     io_backend:
       type: disk
+  
+  # val_2:
+  #   name: STL
+  #   type: DeblurPairedDataset
+  #   gt_size: 256
+  #   dataroot_gt: nlos-datasets/STL-10/test/gt_test/
+  #   dataroot_lq: nlos-datasets/STL-10/test/C_dark_1_d100_occluder_test/
+  #   io_backend:
+  #     type: disk
 
 # network structures
 network_g:
@@ -76,7 +81,7 @@ path:
 
 # training settings
 train:
-  ema_decay: 0.999
+  ema_decay: 0
 
   optim_g:
     type: Adam
@@ -107,6 +112,21 @@ train:
     type: L1Loss
     loss_weight: 1.0
     reduction: mean
+  # perceptual_opt:
+  #   type: PerceptualLoss
+  #   layer_weights:
+  #     # before relu
+  #     'conv1_2': 0.1
+  #     'conv2_2': 0.1
+  #     'conv3_4': 1
+  #     'conv4_4': 1
+  #     'conv5_4': 1
+  #   vgg_type: vgg19
+  #   use_input_norm: true
+  #   perceptual_weight: !!float 0.01
+  #   style_weight: 0
+  #   range_norm: false
+  #   criterion: l1
 
 # Uncomment these for validation
 # validation settings
@@ -119,6 +139,11 @@ val:
       type: calculate_psnr
       crop_border: 0
       test_y_channel: false
+    ssim: # 另外一个指标
+      type: calculate_ssim
+      crop_border: 0
+      test_y_channel:
+      false better: higher
 
 # logging settings
 logger:

@@ -208,13 +208,13 @@ class DIRformer(nn.Module):
 
         #self.patch_embed = OverlapPatchEmbed(inp_channels, dim) # 没有进行降采样，单纯通道数的映射
 
-        self.encoder_level1 = nn.Sequential(*[TransformerBlock(dim=dim, num_heads=heads[0], ffn_expansion_factor=ffn_expansion_factor, bias=bias, LayerNorm_type=LayerNorm_type) for i in range(num_blocks[0])])
+        self.encoder_level1 = nn.Sequential(*[TransformerBlock(dim=dim*2, num_heads=heads[0], ffn_expansion_factor=ffn_expansion_factor, bias=bias, LayerNorm_type=LayerNorm_type) for i in range(num_blocks[0])])
         
-        self.down1_2 = Downsample(dim) ## From Level 1 to Level 2，3x3卷积改变通道数，然后再unshuffle降采样
-        self.encoder_level2 = nn.Sequential(*[TransformerBlock(dim=int(dim*2**1), num_heads=heads[1], ffn_expansion_factor=ffn_expansion_factor, bias=bias, LayerNorm_type=LayerNorm_type) for i in range(num_blocks[1])])
+        self.down1_2 = Downsample(dim*2**1) ## From Level 1 to Level 2，3x3卷积改变通道数，然后再unshuffle降采样
+        self.encoder_level2 = nn.Sequential(*[TransformerBlock(dim=int(dim*2**2), num_heads=heads[1], ffn_expansion_factor=ffn_expansion_factor, bias=bias, LayerNorm_type=LayerNorm_type) for i in range(num_blocks[1])])
         
-        self.down2_3 = Downsample(int(dim*2**1)) ## From Level 2 to Level 3
-        self.encoder_level3 = nn.Sequential(*[TransformerBlock(dim=int(dim*2**2), num_heads=heads[2], ffn_expansion_factor=ffn_expansion_factor, bias=bias, LayerNorm_type=LayerNorm_type) for i in range(num_blocks[2])])
+        self.down2_3 = Downsample(int(dim*2**2)) ## From Level 2 to Level 3
+        self.encoder_level3 = nn.Sequential(*[TransformerBlock(dim=int(dim*2**3), num_heads=heads[2], ffn_expansion_factor=ffn_expansion_factor, bias=bias, LayerNorm_type=LayerNorm_type) for i in range(num_blocks[2])])
 
         # self.down3_4 = Downsample(int(dim*2**2)) ## From Level 3 to Level 4
         # self.latent = nn.Sequential(*[TransformerBlock(dim=int(dim*2**3), num_heads=heads[3], ffn_expansion_factor=ffn_expansion_factor, bias=bias, LayerNorm_type=LayerNorm_type) for i in range(num_blocks[3])])
@@ -232,50 +232,57 @@ class DIRformer(nn.Module):
         #
         # self.decoder_level1 = nn.Sequential(*[TransformerBlock(dim=int(dim*2**1), num_heads=heads[0], ffn_expansion_factor=ffn_expansion_factor, bias=bias, LayerNorm_type=LayerNorm_type) for i in range(num_blocks[0])])
         
-        self.refinement = nn.Sequential(*[TransformerBlock(dim=int(dim*2**1), num_heads=heads[0], ffn_expansion_factor=ffn_expansion_factor, bias=bias, LayerNorm_type=LayerNorm_type) for i in range(num_refinement_blocks)])
+        self.refinement = nn.Sequential(*[TransformerBlock(dim=int(dim*2**3), num_heads=heads[-1], ffn_expansion_factor=ffn_expansion_factor, bias=bias, LayerNorm_type=LayerNorm_type) for i in range(num_refinement_blocks)])
 
         self.output = nn.Sequential(
-            nn.Conv2d()
+            nn.Conv2d(dim*2**3, 16*16*3, kernel_size=3, stride=1, padding=1),
+            nn.PixelShuffle(16),
+            #nn.Tanh()
         )
 
         # 输出就是正常的conv，没有激活函数
         #self.output = nn.Conv2d(int(dim*2**1), out_channels, kernel_size=3, stride=1, padding=1, bias=bias)
 
     def forward(self, inp_img,k_v):
+        
+        #inp_img = (inp_img-0.5)/0.5
 
-        inp_enc_level1 = self.patch_embed(inp_img) # 不改变空间尺寸
+        inp_enc_level1 = self.patch_embed(inp_img) # 4,96,64,64
         out_enc_level1,_ = self.encoder_level1([inp_enc_level1,k_v]) # 在原始图像上attention
         
-        inp_enc_level2 = self.down1_2(out_enc_level1)
+        inp_enc_level2 = self.down1_2(out_enc_level1) # 4,192,32,32
         out_enc_level2,_ = self.encoder_level2([inp_enc_level2,k_v])
 
         inp_enc_level3 = self.down2_3(out_enc_level2)
-        out_enc_level3,_ = self.encoder_level3([inp_enc_level3,k_v]) 
+        out_enc_level3,_ = self.encoder_level3([inp_enc_level3,k_v])
 
-        inp_enc_level4 = self.down3_4(out_enc_level3)   # 32x32x384
-        latent,_ = self.latent([inp_enc_level4,k_v]) 
-                        
-        inp_dec_level3 = self.up4_3(latent)
-        inp_dec_level3 = torch.cat([inp_dec_level3, out_enc_level3], 1)
-        inp_dec_level3 = self.reduce_chan_level3(inp_dec_level3)
-        out_dec_level3,_ = self.decoder_level3([inp_dec_level3,k_v]) 
-
-        inp_dec_level2 = self.up3_2(out_dec_level3)
-        inp_dec_level2 = torch.cat([inp_dec_level2, out_enc_level2], 1)
-        inp_dec_level2 = self.reduce_chan_level2(inp_dec_level2)
-        out_dec_level2,_ = self.decoder_level2([inp_dec_level2,k_v]) 
-
-        inp_dec_level1 = self.up2_1(out_dec_level2)
-        inp_dec_level1 = torch.cat([inp_dec_level1, out_enc_level1], 1)
-        out_dec_level1,_ = self.decoder_level1([inp_dec_level1,k_v])
+        out_dec_level1,_ = self.refinement([out_enc_level3,k_v]) # refinement这里也是堆叠了transformer block, refinement这里也接受了调制
+        out_dec_level1 = self.output(out_dec_level1)
+        # inp_enc_level4 = self.down3_4(out_enc_level3)   # 32x32x384
+        # latent,_ = self.latent([inp_enc_level4,k_v])
+        #
+        # inp_dec_level3 = self.up4_3(latent)
+        # inp_dec_level3 = torch.cat([inp_dec_level3, out_enc_level3], 1)
+        # inp_dec_level3 = self.reduce_chan_level3(inp_dec_level3)
+        # out_dec_level3,_ = self.decoder_level3([inp_dec_level3,k_v])
+        #
+        # inp_dec_level2 = self.up3_2(out_dec_level3)
+        # inp_dec_level2 = torch.cat([inp_dec_level2, out_enc_level2], 1)
+        # inp_dec_level2 = self.reduce_chan_level2(inp_dec_level2)
+        # out_dec_level2,_ = self.decoder_level2([inp_dec_level2,k_v])
+        #
+        # inp_dec_level1 = self.up2_1(out_dec_level2)
+        # inp_dec_level1 = torch.cat([inp_dec_level1, out_enc_level1], 1)
+        # out_dec_level1,_ = self.decoder_level1([inp_dec_level1,k_v])
         
-        out_dec_level1,_ = self.refinement([out_dec_level1,k_v]) # refinement这里也是堆叠了transformer block, refinement这里也接受了调制
+        #out_dec_level1,_ = self.refinement([out_dec_level1,k_v]) # refinement这里也是堆叠了transformer block, refinement这里也接受了调制
 
         # 比较通用的玩法了，输出的时候再额外的加上输入
         #out_dec_level1 = self.output(out_dec_level1) + inp_img
-        out_dec_level1 = self.output(out_dec_level1)
+        #out_dec_level1 = self.output(out_dec_level1)
 
-
+        #out_dec_level1 = out_dec_level1*0.5+0.5
+        
         return out_dec_level1
 
 class CPEN(nn.Module):
