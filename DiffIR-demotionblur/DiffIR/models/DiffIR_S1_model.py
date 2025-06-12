@@ -53,6 +53,7 @@ class DiffIRS1Model(SRModel):
         super(DiffIRS1Model, self).__init__(opt)
         if self.is_train:
             self.mixing_flag = self.opt['train']['mixing_augs'].get('mixup', False)
+            self.pixel_iter = opt["train"]["pixel_iter"]
             if self.mixing_flag:
                 mixup_beta       = self.opt['train']['mixing_augs'].get('mixup_beta', 1.2)
                 use_identity     = self.opt['train']['mixing_augs'].get('use_identity', False)
@@ -138,20 +139,24 @@ class DiffIRS1Model(SRModel):
 
         l_total = 0
         loss_dict = OrderedDict()
+
         # pixel loss
         if self.cri_pix:
             l_pix = self.cri_pix(self.output, self.gt)
             l_total += l_pix
             loss_dict['l_pix'] = l_pix
-        # perceptual loss
-        if self.cri_perceptual:
-            l_percep, l_style = self.cri_perceptual(self.output, self.gt)
-            if l_percep is not None:
-                l_total += l_percep
-                loss_dict['l_percep'] = l_percep
-            if l_style is not None:
-                l_total += l_style
-                loss_dict['l_style'] = l_style
+
+        # 逻辑上更明确？只有大于pixel_iter，才开始考虑perceptual
+        if current_iter > self.pixel_iter:
+            # perceptual loss
+            if self.cri_perceptual:
+                l_percep, l_style = self.cri_perceptual(self.output, self.gt)
+                if l_percep is not None:
+                    l_total += l_percep
+                    loss_dict['l_percep'] = l_percep
+                if l_style is not None:
+                    l_total += l_style
+                    loss_dict['l_style'] = l_style
 
         l_total.backward()
         self.optimizer_g.step()

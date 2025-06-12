@@ -18,3 +18,7 @@
 
 - Adam的weight_decay那里不能像之前一样设置为0.05
   - 不然学不到什么东西
+- 尝试了训练到一定阶段后再加入perceptual
+  - 主要更改了DiffIR_S1_model里面的optimize部分的结构，同时加入了一个额外的pixel_iter用来进行控制
+- 感觉过拟合仍然是一个问题，因为半影图像本质是非常相似的
+  - 模仿NAFNet加入了一个比较简单的drop_out_rate
