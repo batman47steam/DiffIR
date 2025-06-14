@@ -363,7 +363,7 @@ class DiffIRS1(nn.Module):
         drop_out_rate = drop_out_rate,
         )
 
-        #self.E = CPEN(n_feats=64, n_encoder_res=n_encoder_res) # CPEN也是直接在这个里面创建了一个类
+        self.E = CPEN(n_feats=64, n_encoder_res=n_encoder_res) # CPEN也是直接在这个里面创建了一个类
 
         self.pixel_unshuffle = nn.PixelUnshuffle(4)
 
@@ -371,17 +371,17 @@ class DiffIRS1(nn.Module):
     def forward(self, x, gt):
         if self.training:
 
-            #IPRS1, S1_IPR = self.E(x,gt)
+            IPRS1, S1_IPR = self.E(x,gt)
 
-            #sr = self.G(x, IPRS1) # G就是一个完整的具有上采样和下采样的
-            sr = self.G(x, None) # 看不注入先验时的重建结果
+            sr = self.G(x, IPRS1) # G就是一个完整的具有上采样和下采样的
+            #sr = self.G(x, None) # 看不注入先验时的重建结果
 
-            #return sr, S1_IPR # S1_IPR应该是没变过
-            return sr, None
+            return sr, S1_IPR # S1_IPR应该是没变过
+            #return sr, None
         else:
-            #IPRS1, _ = self.E(x,gt)
+            IPRS1, _ = self.E(x,gt)
 
-            #sr = self.G(x, IPRS1)
-            sr = self.G(x, None)
+            sr = self.G(x, IPRS1)
+            #sr = self.G(x, None)
 
             return sr
