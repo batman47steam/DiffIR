@@ -321,10 +321,21 @@ class CPEN(nn.Module):
             nn.Linear(n_feats * 4, n_feats * 4),
             nn.LeakyReLU(0.1, True)
         )
+        # 取代shuffle来实现4倍降采样, E1的通道是96，所以各48
+        self.gt_embedding = nn.Sequential(
+            nn.Conv2d(3, 48, kernel_size=4, stride=4, bias=False),
+            LayerNorm2d(48)
+        )
+        self.lq_embedding = nn.Sequential(
+            nn.Conv2d(3, 48, kernel_size=4, stride=4, bias=False),
+            LayerNorm2d(48)
+        )
         self.pixel_unshuffle = nn.PixelUnshuffle(4)
     def forward(self, x,gt):
-        gt0 = self.pixel_unshuffle(gt) # 输入都先进行降采样
-        x0 = self.pixel_unshuffle(x)
+        # gt0 = self.pixel_unshuffle(gt) # 输入都先进行降采样
+        # x0 = self.pixel_unshuffle(x)
+        gt0 = self.gt_embedding(gt)
+        x0 = self.lq_embedding(x)
         x = torch.cat([x0, gt0], dim=1)
         fea = self.E(x).squeeze(-1).squeeze(-1) # [batch, n_feats*4]
         S1_IPR = []
