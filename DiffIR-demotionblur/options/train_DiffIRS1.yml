@@ -98,7 +98,7 @@ train:
 #    eta_mins: [0.000285,0.000001]
   scheduler:
     type: TrueCosineAnnealingLR
-    T_max: 84000
+    T_max: 100000
     eta_min: !!float 1e-7
 
   pixel_iter: 30000 # 相当于先利用pixel loss进行预热
@@ -115,9 +115,9 @@ train:
     type: L1Loss
     loss_weight: 1.0
     reduction: mean
-#  ssim_opt:
-#    type: SSIMLoss
-#    loss_weight: !!float 1e-2
+  ssim_opt:
+    type: SSIMLoss
+    loss_weight: !!float 1e-1
 
 #  perceptual_opt:
 #    type: PerceptualLoss
